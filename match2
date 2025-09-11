@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+import 'login_page.dart';
+
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'MatchNavigator',
+      theme: ThemeData(
+        colorScheme: const ColorScheme(
+          brightness: Brightness.light,
+          primary: Colors.green,      // Main brand color
+          onPrimary: Colors.white,    // Text/icon color on green
+          secondary: Colors.purple,   // Secondary accent
+          onSecondary: Colors.white,  // Text/icon color on purple
+          background: Colors.white,
+          onBackground: Colors.black,
+          surface: Colors.white,
+          onSurface: Colors.black,
+          error: Colors.red,
+          onError: Colors.white,
+        ),
+        useMaterial3: true,
+      ),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Image.asset(
+              "images2/logo_for_dating.jpg", // your logo path
+              height: 30, // adjust size to fit nicely in the AppBar
+            ),
+            const SizedBox(width: 8), // spacing between logo & text
+            const Text(
+              "MatchNavigator Home",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+
+
+      body: Container(
+        decoration:  BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("images2/datingpic1.JPG"), // <- your image
+            fit: BoxFit.cover, // cover, contain, fill, etc.
+          ),
+        ),
+        child: Center(
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+              ),
+              child: const Text("Login"),
+          ),
+        ),
+      ),
+    );
+  }
+}
