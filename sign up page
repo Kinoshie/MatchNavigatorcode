@@ -1,0 +1,83 @@
+import 'package:flutter/material.dart';
+import 'auth_service.dart';
+
+class SignUpPage extends StatefulWidget {
+  const SignUpPage({super.key});
+
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _userCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await auth.signUp(_userCtrl.text.trim(), _passCtrl.text);
+      if (!mounted) return;
+      // Return the username so the Login page can auto-fill it
+      Navigator.pop(context, _userCtrl.text.trim());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create account')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _userCtrl,
+                decoration: const InputDecoration(labelText: 'Username'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passCtrl,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (v) =>
+                (v == null || v.length < 6) ? 'Use at least 6 characters' : null,
+              ),
+              const SizedBox(height: 16),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _busy ? null : _submit,
+                child: _busy ? const CircularProgressIndicator() : const Text('Create account'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _busy ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
