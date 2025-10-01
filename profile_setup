@@ -1,0 +1,197 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'auth_service.dart';
+import 'profile_service.dart';
+
+class ProfileSetupPage extends StatefulWidget {
+  const ProfileSetupPage({super.key});
+
+  @override
+  State<ProfileSetupPage> createState() => _ProfileSetupPageState();
+}
+
+class _ProfileSetupPageState extends State<ProfileSetupPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  final _firstCtrl = TextEditingController();
+  final _lastCtrl  = TextEditingController();
+  final _bioCtrl   = TextEditingController();
+
+  String _gender = 'Male';
+  String _interestedIn = 'Women';
+  final List<String> _photos = [];
+
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _firstCtrl.dispose();
+    _lastCtrl.dispose();
+    _bioCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhotos() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (result != null) {
+        final chosen = result.paths.whereType<String>().toList();
+        setState(() {
+          _photos.addAll(chosen);
+          if (_photos.length > 6) _photos.removeRange(6, _photos.length);
+        });
+      }
+    } catch (e) {
+      setState(() => _error = 'Failed to pick images: $e');
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    final user = auth.currentUser;
+    if (user == null) {
+      setState(() => _error = 'Not signed in.');
+      return;
+    }
+
+    setState(() { _saving = true; _error = null; });
+    try {
+      profiles.saveProfile(UserProfile(
+        username: user.username,
+        firstName: _firstCtrl.text.trim(),
+        lastName:  _lastCtrl.text.trim(),
+        gender: _gender,
+        interestedIn: _interestedIn,
+        bio: _bioCtrl.text.trim(),
+        photoPaths: List<String>.from(_photos),
+      ));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved!')),
+      );
+      Navigator.pop(context); // back to Welcome
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create your dating profile')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _firstCtrl,
+                      decoration: const InputDecoration(labelText: 'First name'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _lastCtrl,
+                      decoration: const InputDecoration(labelText: 'Last name'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _gender,
+                items: const [
+                  DropdownMenuItem(value: 'Male', child: Text('Male')),
+                  DropdownMenuItem(value: 'Female', child: Text('Female')),
+                  DropdownMenuItem(value: 'Non-binary', child: Text('Non-binary')),
+                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                ],
+                onChanged: (v) => setState(() => _gender = v ?? _gender),
+                decoration: const InputDecoration(labelText: 'Your gender'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _interestedIn,
+                items: const [
+                  DropdownMenuItem(value: 'Women', child: Text('Women')),
+                  DropdownMenuItem(value: 'Men', child: Text('Men')),
+                  DropdownMenuItem(value: 'Everyone', child: Text('Everyone')),
+                ],
+                onChanged: (v) => setState(() => _interestedIn = v ?? _interestedIn),
+                decoration: const InputDecoration(labelText: 'Interested in'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _bioCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Short bio',
+                  hintText: 'Tell people a little about you…',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              Text('Photos (up to 6)', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final path in _photos)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: 90,
+                        height: 90,
+                        child: (path.startsWith('http'))
+                            ? Image.network(path, fit: BoxFit.cover)
+                            : Image.file(File(path), fit: BoxFit.cover),
+                      ),
+                    ),
+                  InkWell(
+                    onTap: _pickPhotos,
+                    child: Container(
+                      width: 90, height: 90,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white38),
+                      ),
+                      child: const Icon(Icons.add_a_photo),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _saving ? null : _save,
+                child: _saving ? const CircularProgressIndicator() : const Text('Save profile'),
+              ),
+              TextButton(
+                onPressed: _saving ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
