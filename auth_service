@@ -1,0 +1,46 @@
+// lib/auth_service.dart
+import 'package:flutter/material.dart';
+
+class AppUser {
+  final String username;
+  AppUser(this.username);
+}
+
+class AuthService with ChangeNotifier {
+  // Demo store: username -> password
+  final Map<String, String> _users = {};
+  AppUser? _current;
+
+  AppUser? get currentUser => _current;
+
+  Future<void> signUp(String username, String password) async {
+    if (username.isEmpty || password.isEmpty) {
+      throw 'Username and password are required.';
+    }
+    if (_users.containsKey(username)) {
+      throw 'That username is already taken.';
+    }
+    _users[username] = password;
+    _current = AppUser(username);
+    notifyListeners();
+  }
+
+  Future<void> signIn(String username, String password) async {
+    if (!_users.containsKey(username)) {
+      throw 'No account found for that username.';
+    }
+    if (_users[username] != password) {
+      throw 'Incorrect password.';
+    }
+    _current = AppUser(username);
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    _current = null;
+    notifyListeners();
+  }
+}
+
+// A simple global for now (keeps it dependency-free).
+final auth = AuthService();
