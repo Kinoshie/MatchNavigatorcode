@@ -1,0 +1,31 @@
+import 'package:flutter/material.dart';
+import 'match2.dart';          // your HomePage
+import 'welcome_page.dart';   // <-- add this import (and others if you want routes)
+import 'login_page.dart';
+import 'signup_page.dart';
+import 'profile_setup_page.dart';
+
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'MatchNavigator',
+      theme: ThemeData(
+        colorScheme: const ColorScheme.light(primary: Colors.green),
+        useMaterial3: true,
+      ),
+      debugShowCheckedModeBanner: false,
+      home: const HomePage(),     // ✅ still starts on match2.dart
+      routes: {
+        '/welcome': (c) => const WelcomePage(),
+        '/login': (c) => const LoginPage(),
+        '/signup': (c) => const SignUpPage(),
+        '/profileSetup': (c) => const ProfileSetupPage(),
+      },
+    );
+  }
+}
