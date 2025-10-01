@@ -1,0 +1,31 @@
+// lib/profile_service.dart
+class UserProfile {
+  final String username;
+  String firstName;
+  String lastName;
+  String gender;        // e.g., Male, Female, Non-binary, Other
+  String interestedIn;  // e.g., Women, Men, Everyone
+  String bio;
+  List<String> photoPaths; // file paths or URLs later
+
+  UserProfile({
+    required this.username,
+    required this.firstName,
+    required this.lastName,
+    required this.gender,
+    required this.interestedIn,
+    required this.bio,
+    required this.photoPaths,
+  });
+}
+
+class ProfileService {
+  final Map<String, UserProfile> _profiles = {}; // username -> profile
+
+  bool hasProfile(String username) => _profiles.containsKey(username);
+  UserProfile? getProfile(String username) => _profiles[username];
+  void saveProfile(UserProfile profile) => _profiles[profile.username] = profile;
+  void deleteProfile(String username) => _profiles.remove(username);
+}
+
+final profiles = ProfileService();
