@@ -1,0 +1,111 @@
+import 'package:flutter/material.dart';
+import 'auth_service.dart';
+import 'signup_page.dart';
+import 'profile_service.dart';
+import 'profile_setup_page.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _userCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await auth.signIn(_userCtrl.text.trim(), _passCtrl.text);
+      if (!mounted) return;
+
+      final u = auth.currentUser;
+      if (u != null && !profiles.hasProfile(u.username)) {
+        // Open profile setup immediately; when it pops, you'll be back to Welcome.
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileSetupPage()),
+        );
+      } else {
+        Navigator.pop(context); // back to Welcome
+      }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Log in')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _userCtrl,
+                decoration: const InputDecoration(labelText: 'Username'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passCtrl,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _busy ? null : _submit,
+                child: _busy ? const CircularProgressIndicator() : const Text('Log in'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _busy ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: _busy ? null : () async {
+                  final createdUsername = await Navigator.push<String>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignUpPage()),
+                  );
+                  if (!mounted) return;
+                  if (createdUsername != null && createdUsername.isNotEmpty) {
+                    _userCtrl.text = createdUsername; // auto-fill
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Account created. Please log in.')),
+                    );
+                  }
+                },
+                child: const Text("Don't have an account? Create one"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
