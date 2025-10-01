@@ -1,0 +1,320 @@
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'models/user_profile.dart';
+
+class CreateAccountPage extends StatefulWidget {
+  const CreateAccountPage({super.key});
+
+  @override
+  State<CreateAccountPage> createState() => _CreateAccountPageState();
+}
+
+class _CreateAccountPageState extends State<CreateAccountPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  final _firstCtrl = TextEditingController();
+  final _lastCtrl  = TextEditingController();
+  final _introCtrl = TextEditingController();
+  final _bioCtrl   = TextEditingController();
+
+  String _gender = 'Male';
+  final List<String> _interestedOptions = const ['Male','Female','Non-binary','Other'];
+  final Set<String> _interestedIn = {'Female'}; // default example
+
+  // Selected images: keep both paths and in-memory bytes for previews on web.
+  final List<String> _photoPaths = [];
+  final Map<String, Uint8List> _photoBytes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  Future<void> _pickPhotos() async {
+    final res = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.image,
+      withData: kIsWeb, // get bytes for web previews
+    );
+    if (res == null) return;
+
+    // Limit to 6 total
+    final remaining = 6 - _photoPaths.length;
+    final files = res.files.take(remaining);
+
+    setState(() {
+      for (final f in files) {
+        if (f.path != null || f.bytes != null) {
+          final key = f.path ?? f.name;
+          _photoPaths.add(f.path ?? f.name);
+          if (f.bytes != null) _photoBytes[key] = f.bytes!;
+        }
+      }
+    });
+  }
+
+  void _removePhoto(int index) {
+    final key = _photoPaths[index];
+    setState(() {
+      _photoPaths.removeAt(index);
+      _photoBytes.remove(key);
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final profile = UserProfile(
+      firstName: _firstCtrl.text.trim(),
+      lastName: _lastCtrl.text.trim(),
+      gender: _gender,
+      interestedIn: _interestedIn.toList(),
+      intro: _introCtrl.text.trim(),
+      bio: _bioCtrl.text.trim(),
+      photoPaths: _photoPaths,
+    );
+    await prefs.setString('draft_profile', profile.toJson());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Draft saved locally')),
+      );
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = prefs.getString('draft_profile');
+    if (s == null) return;
+    final p = UserProfile.fromJson(s);
+    setState(() {
+      _firstCtrl.text = p.firstName;
+      _lastCtrl.text  = p.lastName;
+      _gender         = p.gender.isNotEmpty ? p.gender : _gender;
+      _interestedIn
+        ..clear()
+        ..addAll(p.interestedIn.isNotEmpty ? p.interestedIn : _interestedIn);
+      _introCtrl.text = p.intro;
+      _bioCtrl.text   = p.bio;
+      _photoPaths
+        ..clear()
+        ..addAll(p.photoPaths);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final profile = UserProfile(
+      firstName: _firstCtrl.text.trim(),
+      lastName: _lastCtrl.text.trim(),
+      gender: _gender,
+      interestedIn: _interestedIn.toList(),
+      intro: _introCtrl.text.trim(),
+      bio: _bioCtrl.text.trim(),
+      photoPaths: _photoPaths,
+    );
+
+    // TODO: Replace this with your backend call (e.g., Firebase/REST).
+    // For now, keep it local and show a success UI.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('current_profile', profile.toJson());
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Account Created'),
+          content: const Text('Profile saved locally (stub). Hook up your backend next.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            )
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstCtrl.dispose();
+    _lastCtrl.dispose();
+    _introCtrl.dispose();
+    _bioCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create your account')),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _firstCtrl,
+                      decoration: const InputDecoration(labelText: 'First name'),
+                      textInputAction: TextInputAction.next,
+                      validator: (v) => (v==null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _lastCtrl,
+                      decoration: const InputDecoration(labelText: 'Last name'),
+                      textInputAction: TextInputAction.next,
+                      validator: (v) => (v==null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _introCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Intro (headline)',
+                  hintText: 'e.g., “Navy vet, gym & ramen lover”',
+                ),
+                maxLength: 80,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _bioCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Bio',
+                  hintText: 'Tell people about yourself…',
+                ),
+                minLines: 4,
+                maxLines: 6,
+                maxLength: 500,
+              ),
+              const SizedBox(height: 8),
+
+              DropdownButtonFormField<String>(
+                value: _gender,
+                decoration: const InputDecoration(labelText: 'Your sex / gender'),
+                items: const ['Male','Female','Non-binary','Other']
+                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .toList(),
+                onChanged: (v) => setState(() => _gender = v ?? _gender),
+              ),
+              const SizedBox(height: 12),
+
+              const Text('Interested in', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                children: _interestedOptions.map((opt) {
+                  final selected = _interestedIn.contains(opt);
+                  return FilterChip(
+                    label: Text(opt),
+                    selected: selected,
+                    onSelected: (val) {
+                      setState(() {
+                        if (val) {
+                          _interestedIn.add(opt);
+                        } else {
+                          _interestedIn.remove(opt);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _photoPaths.length >= 6 ? null : _pickPhotos,
+                    icon: const Icon(Icons.photo_library),
+                    label: Text(_photoPaths.isEmpty ? 'Add photos' : 'Add more photos'),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('${_photoPaths.length}/6 selected'),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Thumbnails grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _photoPaths.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8),
+                itemBuilder: (_, i) {
+                  final path = _photoPaths[i];
+                  final bytes = _photoBytes[path];
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: bytes != null
+                            ? Image.memory(bytes, fit: BoxFit.cover)
+                            : Image.asset(
+                          '', // fallback; for desktop, Image.file is ideal but keep null-safe
+                          errorBuilder: (c, e, s) => Container(
+                            color: Colors.black12,
+                            alignment: Alignment.center,
+                            child: Text(
+                              path.split('/').last,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: InkWell(
+                          onTap: () => _removePhoto(i),
+                          child: Container(
+                            decoration: BoxDecoration(
+                                color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.all(4),
+                            child: const Icon(Icons.close, color: Colors.white, size: 18),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _saveDraft,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Save draft'),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: _submit,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Create account'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
