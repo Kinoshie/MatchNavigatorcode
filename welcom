@@ -87,7 +87,7 @@ class _WelcomePageState extends State<WelcomePage> {
                           );
                           if (!mounted) return;
                           setState(() {});            // refresh text
-                          await _maybePromptProfile(); // 👈 auto open profile if missing
+                          await _maybePromptProfile(); // 
                         },
                         child: const Text('Log in'),
                       ),
