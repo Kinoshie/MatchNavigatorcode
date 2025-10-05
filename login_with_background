@@ -1,0 +1,204 @@
+import 'package:flutter/material.dart';
+
+// These paths match your tree (auth_service.dart is in lib/models/).
+import 'auth_service.dart';
+import 'profile_service.dart';
+import 'profile_setup_page.dart';
+import 'signup_page.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      // ✅ Use your existing global "auth" (NOT AuthService.instance)
+      await auth.signIn(_userCtrl.text.trim(), _passCtrl.text);
+      if (!mounted) return;
+
+      final u = auth.currentUser;
+
+      // If no profile yet, go to setup
+      if (u != null && !profiles.hasProfile(u.username)) {
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileSetupPage()),
+        );
+        return;
+      }
+
+      // Otherwise go to your main page
+      Navigator.pushReplacementNamed(context, '/match');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Login failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _userCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          // 🔹 Full-screen background image
+          Positioned.fill(
+            child: Image.asset(
+              'images2/logo_for_dating.jpg', // your file
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // 🔹 Optional overlay for readability
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.35)),
+          ),
+
+          // 🔹 Foreground: login card
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Card(
+                    elevation: 8,
+                    shadowColor: Colors.black45,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'Log in',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 18),
+
+                            TextFormField(
+                              controller: _userCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Username',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 12),
+
+                            TextFormField(
+                              controller: _passCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Password',
+                                border: OutlineInputBorder(),
+                              ),
+                              obscureText: true,
+                              validator: (v) =>
+                              (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
+                            const SizedBox(height: 16),
+
+                            if (_error != null) ...[
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            ElevatedButton(
+                              onPressed: _busy ? null : _submit,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: _busy
+                                    ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                                    : const Text('Log in'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextButton(
+                              onPressed: _busy ? null : () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(height: 8),
+
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () async {
+                                // open signup; expect username back
+                                final createdUsername =
+                                await Navigator.push<String>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SignUpPage(),
+                                  ),
+                                );
+                                if (!mounted) return;
+
+                                if (createdUsername != null &&
+                                    createdUsername.isNotEmpty) {
+                                  _userCtrl.text = createdUsername;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Account created. Please log in.'),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text("Don't have an account? Create one"),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
