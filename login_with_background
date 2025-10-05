@@ -30,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // ✅ Use your existing global "auth" (NOT AuthService.instance)
+      // Use your existing global "auth" (NOT AuthService.instance)
       await auth.signIn(_userCtrl.text.trim(), _passCtrl.text);
       if (!mounted) return;
 
